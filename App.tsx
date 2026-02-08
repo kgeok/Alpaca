@@ -132,42 +132,6 @@ async function checkConnection({ url, app }: { url: string, app: string }) {
 
 const Tabs = createBottomTabNavigator();
 
-function MessagesViewScreen({
-  messages,
-  messageInput,
-  setMessageInput,
-  handleSendMessage,
-  dateTime
-}: any) {
-  return (
-    <View style={{ flex: 1 }}>
-      <View style={styles.MainMessageView}>
-        <Text style={{ textAlign: "center", paddingBottom: 15, color: "#79797955" }}>
-          {dateTime}
-        </Text>
-        <FlatList
-          data={messages}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => item.sender ?
-            <MessageBubbleSent message={item.text} /> :
-            <MessageBubbleRecieved message={item.text} />
-          }
-          ListEmptyComponent={<Text style={{ textAlign: 'center', marginTop: 20, color: "grey" }}>No messages yet.</Text>}
-        />
-      </View>
-      <MessageInputBox>
-        <TextInput
-          value={messageInput}
-          onChangeText={setMessageInput}
-          placeholder="Type a message..."
-          style={styles.MessageInput}
-        />
-        <SendMessageButton onPress={() => handleSendMessage({ message: messageInput })} />
-      </MessageInputBox>
-    </View>
-  );
-}
-
 function App() {
   const dateTime = new Date().toLocaleString();
   const [ipaddress, setipaddress] = useState("0.0.0.0");

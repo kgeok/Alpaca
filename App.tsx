@@ -17,7 +17,7 @@ const release = 'Prototype';
 interface MessageItem {
   id: string;
   text: string;
-  sender: 'user' | 'reciever';
+  sender: boolean;
 }
 
 const Separator = () => <View style={styles.Separator} />;
@@ -72,7 +72,7 @@ function ModalDialog({ visable, onClose, title, children }: { visable: boolean; 
       presentationStyle='pageSheet'
       visible={visable}
       onRequestClose={() => {
-        { onClose }
+        { onClose(); }
       }}>
       <View style={styles.ModalCenter}>
         <View style={styles.ModalContainer}>
@@ -81,6 +81,20 @@ function ModalDialog({ visable, onClose, title, children }: { visable: boolean; 
         </View>
       </View>
     </Modal>
+  )
+}
+
+function MessageInputBox({ children }: { children: React.ReactNode }) {
+  return (
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={120}>
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <View style={styles.MessageCompose}>
+          {children}
+        </View>
+      </TouchableWithoutFeedback>
+    </KeyboardAvoidingView>
   )
 }
 
@@ -118,20 +132,93 @@ async function checkConnection({ url, app }: { url: string, app: string }) {
 
 const Tabs = createBottomTabNavigator();
 
+function MessagesViewScreen({
+  messages,
+  messageInput,
+  setMessageInput,
+  handleSendMessage,
+  dateTime
+}: any) {
+  return (
+    <View style={{ flex: 1 }}>
+      <View style={styles.MainMessageView}>
+        <Text style={{ textAlign: "center", paddingBottom: 15, color: "#79797955" }}>
+          {dateTime}
+        </Text>
+        <FlatList
+          data={messages}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => item.sender ?
+            <MessageBubbleSent message={item.text} /> :
+            <MessageBubbleRecieved message={item.text} />
+          }
+          ListEmptyComponent={<Text style={{ textAlign: 'center', marginTop: 20, color: "grey" }}>No messages yet.</Text>}
+        />
+      </View>
+      <MessageInputBox>
+        <TextInput
+          value={messageInput}
+          onChangeText={setMessageInput}
+          placeholder="Type a message..."
+          style={styles.MessageInput}
+        />
+        <SendMessageButton onPress={() => handleSendMessage({ message: messageInput })} />
+      </MessageInputBox>
+    </View>
+  );
+}
+
 function App() {
-  const dateTime = Date();
+  const dateTime = new Date().toLocaleString();
   const [ipaddress, setipaddress] = useState("0.0.0.0");
   const [port, setport] = useState("000");
   const [app, setapp] = useState("Other");
   const isLightMode = useColorScheme() === 'light';
   const isDarkMode = useColorScheme() === 'dark';
   const [messages, setMessages] = useState<MessageItem[]>([]);
+  const [messagesCounter, setMessagesCounter] = useState(0);
+  const [messageInput, setMessageInput] = useState("");
+  const [messageOutput, setMessageOutput] = useState("");
 
   <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
 
   function MessagesViewScreen() {
     const safeAreaInsets = useSafeAreaInsets();
 
+    async function handleSendMessage({ message }: { message: string }) {
+      if (messageInput.trim() === "") return;
+      const newMessage: MessageItem = {
+        id: Math.random().toString(),
+        text: message,
+        sender: true
+      }
+      setMessages(prevItems => [...prevItems, newMessage]);
+      //setMessagesCounter(messagesCounter + 1);
+      await handleProcessing();
+      setMessageInput("");
+      Keyboard.dismiss();
+    }
+
+
+    async function handleRecieveMessage({ message }: { message: string }) {
+      if (messageInput.trim() === "") return;
+      const newMessage: MessageItem = {
+        id: Math.random().toString(),
+        text: message,
+        sender: false
+      }
+      setMessages(prevItems => [...prevItems, newMessage]);
+      //setMessagesCounter(messagesCounter + 1);
+      setMessageOutput("");
+
+    }
+
+    async function handleProcessing() {
+      setTimeout(() => {
+        const response = "Test Response from Alpaca";
+        handleRecieveMessage({ message: response });
+      }, 250);
+    }
 
     return (
       <View
@@ -145,20 +232,14 @@ function App() {
           <FlatList
             data={messages}
             keyExtractor={(item) => item.id}
-            renderItem={({ item }) => <MessageBubbleSent message={item.text} />}
+            renderItem={({ item }) => item.sender ? <MessageBubbleSent message={item.text} /> : <MessageBubbleRecieved message={item.text} />}
             ListEmptyComponent={<Text style={{ textAlign: 'center', marginTop: 20, color: "grey" }}>No messages yet.</Text>}
           />
         </View>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          keyboardVerticalOffset={120}>
-          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-            <View style={styles.MessageCompose}>
-              <TextInput placeholder="Type a message..." style={styles.MessageInput}></TextInput>
-              <SendMessageButton onPress={undefined} />
-            </View>
-          </TouchableWithoutFeedback>
-        </KeyboardAvoidingView>
+        <MessageInputBox>
+          <TextInput value={messageInput} onChangeText={setMessageInput} placeholder="Type a message..." style={styles.MessageInput} ></TextInput>
+          <SendMessageButton onPress={() => { handleSendMessage({ message: messageInput }); }} />
+        </MessageInputBox>
       </View >
 
     );
@@ -173,7 +254,7 @@ function App() {
 
     const handleSubmitIPPortDialog = () => {
       if (inputTextIP && inputTextPort != "") {
-        checkConnection({ url: "http://" + { inputTextIP } + ":" + { port } + "/", app: app });
+        checkConnection({ url: `http://${inputTextIP}:${inputTextPort}/`, app: app });
         setipaddress(inputTextIP);
         setport(inputTextPort);
       }
@@ -245,7 +326,10 @@ function App() {
             <SafeAreaProvider>
               <SafeAreaView>
                 <ModalDialog visable={modals.clear} onClose={() => toggleModal("ip")} title={"Clear Chat?"} >
-                  <Pressable style={styles.DestructiveButton} onPress={() => toggleModal("clear")}>
+                  <Pressable style={styles.DestructiveButton} onPress={() => {
+                    setMessages([]);
+                    toggleModal("clear");
+                  }}>
                     <Text style={{ textAlign: "center", fontSize: 16, color: "pink" }}>Clear</Text>
                   </Pressable>
                   <Pressable style={styles.SettingsButton} onPress={() => toggleModal("clear")}>
